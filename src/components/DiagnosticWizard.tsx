@@ -1156,7 +1156,7 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
               className="w-full sm:w-auto py-4 px-8 bg-sky-700 text-white rounded-xl font-bold text-base shadow-lg hover:bg-sky-800 flex items-center justify-center transition-all group"
             >
               <Sparkles className="w-5 h-5 mr-2 text-sky-200" />
-              <span>Beregn Dosering & Generer Opslag</span>
+              <span>Generer Opslag</span>
               <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
