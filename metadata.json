@@ -1,0 +1,5 @@
+{
+  "name": "PoolVand Hjælper",
+  "description": "Smart poolvand diagnose, kemi-dosering og guide til pH, klor, saltvand, pumper og filtre.",
+  "requestFramePermissions": ["camera"]
+}

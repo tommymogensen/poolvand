@@ -1,0 +1,1298 @@
+import React, { useState } from 'react';
+import {
+  WaterColor,
+  PoolProfile,
+  WaterTest,
+  DiagnosticResult,
+  SanitizerType,
+  StabilizedChlorineType,
+  PumpType,
+  FilterType,
+  FilterMedia
+} from '../types';
+import {
+  WATER_COLOR_OPTIONS,
+  SYMPTOM_OPTIONS,
+  PUMP_PRESETS,
+  FILTER_PRESETS
+} from '../lib/constants';
+import { calculateDiagnostic } from '../lib/poolCalculator';
+import {
+  Droplets,
+  Zap,
+  CheckCircle2,
+  AlertTriangle,
+  Info,
+  ChevronRight,
+  ChevronLeft,
+  RotateCcw,
+  Sparkles,
+  Camera,
+  Upload,
+  Layers,
+  Thermometer,
+  ShieldAlert,
+  ArrowUpRight,
+  Filter,
+  Check,
+  Copy,
+  Share2,
+  MessageSquare
+} from 'lucide-react';
+
+interface DiagnosticWizardProps {
+  profile: PoolProfile;
+  onUpdateProfile: (updated: PoolProfile) => void;
+  onSaveTest: (test: WaterTest) => void;
+}
+
+export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
+  profile,
+  onUpdateProfile,
+  onSaveTest
+}) => {
+  // Wizard steps:
+  // 1: Basis-info (Pool-størrelse, pumpe & filter)
+  // 2: Vandets farve, symptomer & temperatur
+  // 3: Desinfektion, klor & salt
+  // 4: Vandmålinger (pH, klor, alkalinitet)
+  // 5: Diagnose, kemiberegning & Facebook-oversigt
+  const [step, setStep] = useState<number>(1);
+
+  // Form State
+  const [waterColor, setWaterColor] = useState<WaterColor>('clear');
+  const [symptoms, setSymptoms] = useState<string[]>([]);
+  const [waterTempC, setWaterTempC] = useState<number>(24);
+
+  // Equipment state (synced with profile or override)
+  const [volumeM3, setVolumeM3] = useState<number>(profile.volumeM3 || 25);
+  const [pumpType, setPumpType] = useState<PumpType>(profile.pumpType || 'standard');
+  const [pumpFlowM3h, setPumpFlowM3h] = useState<number>(profile.pumpFlowM3h || 8);
+  const [pumpImage, setPumpImage] = useState<string>(profile.customPumpImageUrl || '');
+  const [filterType, setFilterType] = useState<FilterType>(profile.filterType || 'sand_glass');
+  const [filterMedia, setFilterMedia] = useState<FilterMedia>(profile.filterMedia || 'glass');
+  const [filterImage, setFilterImage] = useState<string>(profile.customFilterImageUrl || '');
+
+  // Sanitizer state
+  const [isSaltwater, setIsSaltwater] = useState<boolean>(profile.isSaltwaterWithChlorinator || false);
+  const [sanitizerType, setSanitizerType] = useState<SanitizerType>(profile.sanitizerType || 'chlorine_granulate');
+  const [isStabilized, setIsStabilized] = useState<StabilizedChlorineType>(profile.isStabilizedChlorine || 'yes');
+  const [saltGL, setSaltGL] = useState<number>(profile.saltGramsPerLiter || 3.5);
+
+  // Measurements
+  const [hasMeasuredPh, setHasMeasuredPh] = useState<boolean>(true);
+  const [phValue, setPhValue] = useState<number>(7.6);
+
+  const [hasMeasuredChlorine, setHasMeasuredChlorine] = useState<boolean>(true);
+  const [chlorineValue, setChlorineValue] = useState<number>(0.2);
+
+  const [hasMeasuredAlkalinity, setHasMeasuredAlkalinity] = useState<boolean>(false);
+  const [alkalinityValue, setAlkalinityValue] = useState<number>(100);
+
+  const [hasMeasuredCya, setHasMeasuredCya] = useState<boolean>(false);
+  const [cyaValue, setCyaValue] = useState<number>(40);
+
+  // Results & History status
+  const [diagnosticResult, setDiagnosticResult] = useState<DiagnosticResult | null>(null);
+  const [isSaved, setIsSaved] = useState<boolean>(false);
+
+  // Facebook share state
+  const [copiedFacebook, setCopiedFacebook] = useState<boolean>(false);
+  const [showFacebookPreview, setShowFacebookPreview] = useState<boolean>(false);
+  const [customFacebookQuestion, setCustomFacebookQuestion] = useState<string>(
+    'Hvad er jeres erfaring eller bedste råd til mine målinger? På forhånd mange tak!'
+  );
+
+  // Toggle symptom selection
+  const toggleSymptom = (id: string) => {
+    setSymptoms(prev =>
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+    );
+  };
+
+  // Handle pump photo upload
+  const handlePumpImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPumpImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle filter photo upload
+  const handleFilterImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFilterImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Run computation
+  const handleCalculate = () => {
+    const updatedProfile: PoolProfile = {
+      ...profile,
+      volumeM3,
+      pumpType,
+      pumpFlowM3h,
+      customPumpImageUrl: pumpImage,
+      filterType,
+      filterMedia,
+      customFilterImageUrl: filterImage,
+      isSaltwaterWithChlorinator: isSaltwater,
+      sanitizerType: isSaltwater ? 'saltwater' : sanitizerType,
+      isStabilizedChlorine: isStabilized,
+      saltGramsPerLiter: saltGL,
+    };
+    onUpdateProfile(updatedProfile);
+
+    const test: WaterTest = {
+      id: Date.now().toString(),
+      date: new Date().toISOString(),
+      ph: hasMeasuredPh ? phValue : null,
+      freeChlorinePpm: hasMeasuredChlorine ? chlorineValue : null,
+      alkalinityPpm: hasMeasuredAlkalinity ? alkalinityValue : null,
+      cyanuricAcidPpm: hasMeasuredCya ? cyaValue : null,
+      saltGramsPerLiter: isSaltwater ? saltGL : null,
+      waterColor,
+      waterSymptoms: symptoms,
+      waterTempC,
+    };
+
+    const res = calculateDiagnostic(updatedProfile, test);
+    setDiagnosticResult(res);
+    setStep(5);
+    setIsSaved(false);
+  };
+
+  const handleSaveToLog = () => {
+    const test: WaterTest = {
+      id: Date.now().toString(),
+      date: new Date().toISOString(),
+      ph: hasMeasuredPh ? phValue : null,
+      freeChlorinePpm: hasMeasuredChlorine ? chlorineValue : null,
+      alkalinityPpm: hasMeasuredAlkalinity ? alkalinityValue : null,
+      cyanuricAcidPpm: hasMeasuredCya ? cyaValue : null,
+      waterColor,
+      waterSymptoms: symptoms,
+      waterTempC,
+    };
+    onSaveTest(test);
+    setIsSaved(true);
+  };
+
+  // Generate clean formatted text post for Facebook pool groups
+  const generateFacebookText = (): string => {
+    const colorObj = WATER_COLOR_OPTIONS.find(c => c.value === waterColor);
+    const selectedSymptomsLabels = SYMPTOM_OPTIONS.filter(s => symptoms.includes(s.id)).map(s => s.label);
+    const filterMediaObj = FILTER_PRESETS.find(f => f.media === filterMedia);
+    const sanitizerLabel = isSaltwater
+      ? `Saltvand m. klorinator (${saltGL} g/L)`
+      : sanitizerType === 'chlorine_tablets'
+      ? 'Klortabletter (Multi-tabs / Langsomklor)'
+      : sanitizerType === 'chlorine_granulate'
+      ? 'Klor-granulat (Hurtigklor / Chokklor)'
+      : sanitizerType === 'liquid_chlorine'
+      ? 'Flydende klor (Natriumhypoklorit)'
+      : 'Klorfri / Aktivt ilt';
+
+    const pumpLabelText = pumpType === 'unknown'
+      ? `Ved ikke / Usikker ${pumpImage ? '📷 (Billede vedhæftet opslaget)' : '(Se billede i opslag)'}`
+      : `~${pumpFlowM3h} m³/t`;
+
+    const filterLabelText = filterMedia === 'unknown'
+      ? `Ved ikke / Usikker ${filterImage ? '📷 (Billede af filter vedhæftet)' : '(Se billede i opslag)'}`
+      : filterMediaObj?.title || 'Sand/Glasfilter';
+
+    let text = `📋 **POOL VANDANALYSE & HJÆLP SØGES**\n\n`;
+    text += `🏊‍♂️ **POOL BASIS INFO:**\n`;
+    text += `• Poolstørrelse: ${volumeM3} m³ (${volumeM3 * 1000} Liter)\n`;
+    text += `• Desinfektion: ${sanitizerLabel}\n`;
+    text += `• Filter-medie: ${filterLabelText}\n`;
+    text += `• Pumpe-kapacitet: ${pumpLabelText}\n`;
+    text += `• Vandtemperatur: ${waterTempC} °C\n\n`;
+
+    text += `💧 **MÅLT VANDKVALITET:**\n`;
+    text += `• pH-værdi: ${hasMeasuredPh ? phValue.toFixed(1) : 'Ikke målt'}${hasMeasuredPh ? (phValue < 7.2 ? ' (For lav)' : phValue > 7.4 ? ' (For høj)' : ' (Ideel 7.2-7.4)') : ''}\n`;
+    text += `• Frit Klor: ${hasMeasuredChlorine ? `${chlorineValue.toFixed(1)} ppm` : 'Ikke målt'}${hasMeasuredChlorine ? (chlorineValue < 1.0 ? ' (For lavt)' : chlorineValue > 2.0 ? ' (Højt)' : ' (Ideelt 1.0-2.0)') : ''}\n`;
+    text += `• Alkalinitet (TA): ${hasMeasuredAlkalinity ? `${alkalinityValue} ppm` : 'Ikke målt'}\n`;
+    text += `• Cyanursyre (CYA / Klorlås): ${hasMeasuredCya ? `${cyaValue} ppm ${cyaValue > 70 ? '⚠️ (KLORLÅS!)' : ''}` : 'Ikke målt'}\n\n`;
+
+    text += `🎨 **VANDETS UDSEENDE & SYMPTOMER:**\n`;
+    text += `• Farve: ${colorObj?.label || 'Klart'}\n`;
+    text += `• Symptomer: ${selectedSymptomsLabels.length > 0 ? selectedSymptomsLabels.join(', ') : 'Ingen udover måling'}\n\n`;
+
+    if (diagnosticResult) {
+      text += `🧪 **POOLMASTER BEREGNET KEMI-PLAN:**\n`;
+      if (diagnosticResult.chemicalActions.length === 0) {
+        text += `• Ingen kemi nødvendig! Målingerne er ideelle.\n`;
+      } else {
+        diagnosticResult.chemicalActions.forEach((act, idx) => {
+          text += `${idx + 1}. ${act.title}: Dosis ${act.doseAmount}\n`;
+        });
+      }
+      text += `• Anbefalet pumpetid: ${diagnosticResult.recommendedPumpHours} timer/døgn\n\n`;
+    }
+
+    text += `💬 **Spørgsmål til gruppen:** ${customFacebookQuestion || 'Hvad vil I anbefale som næste skridt?'}`;
+    return text;
+  };
+
+  const handleCopyFacebook = () => {
+    const text = generateFacebookText();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        setCopiedFacebook(true);
+        setTimeout(() => setCopiedFacebook(false), 4000);
+      }).catch(() => {
+        fallbackCopy(text);
+      });
+    } else {
+      fallbackCopy(text);
+    }
+  };
+
+  const fallbackCopy = (text: string) => {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    setCopiedFacebook(true);
+    setTimeout(() => setCopiedFacebook(false), 4000);
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
+      {/* Wizard Header / Step Progress Indicator */}
+      <div className="mb-8 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-3">
+            <div className="w-9 h-9 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center font-bold">
+              <Zap className="w-5 h-5 text-sky-600" />
+            </div>
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2">
+                Poolvand Diagnose & Beregner
+              </h2>
+              <p className="text-xs text-slate-500">
+                Udfyld basisdata og målinger for at få en diagnose samt en klar oversigt til f.eks. Facebook.
+              </p>
+            </div>
+          </div>
+          {step < 5 && (
+            <span className="text-xs font-bold px-3 py-1 rounded-md bg-sky-50 text-sky-700 border border-sky-200">
+              Trin {step} af 4
+            </span>
+          )}
+        </div>
+
+        {/* Progress Bar */}
+        {step < 5 && (
+          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden flex border border-slate-200">
+            <div
+              className="bg-sky-600 h-full transition-all duration-300"
+              style={{ width: `${(step / 4) * 100}%` }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* STEP 1: POOL BASIS INFO & UDSTYR */}
+      {step === 1 && (
+        <div className="bg-white rounded-xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+          <div>
+            <h2 className="text-slate-800 font-bold mb-1 flex items-center text-sm uppercase tracking-wide">
+              <span className="w-2 h-4 bg-sky-500 rounded mr-2"></span>
+              1. Basis-Info: Poolstørrelse & Udstyr
+            </h2>
+            <p className="text-xs text-slate-500 mb-6 pl-4">
+              Start med at angive din pools vandvolumen samt filter- og pumpetype.
+            </p>
+
+            {/* Pool Volume */}
+            <div className="mb-6 p-5 bg-sky-50 rounded-xl border border-sky-200 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <label className="text-sm font-bold text-sky-900 block">
+                    Poolens Samlede Vandvolumen (m³)
+                  </label>
+                  <p className="text-xs text-sky-700">
+                    Brugt til præcis kemiberegning (1 m³ = 1.000 liter vand)
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="300"
+                    value={volumeM3}
+                    onChange={e => setVolumeM3(Number(e.target.value))}
+                    className="w-24 px-3 py-2 bg-white border border-sky-300 rounded-lg text-center font-black text-base text-slate-800 shadow-sm"
+                  />
+                  <span className="text-xs font-bold text-sky-900">
+                    m³ ({volumeM3 * 1000} L)
+                  </span>
+                </div>
+              </div>
+
+              {/* Volume Quick Presets */}
+              <div className="pt-2 border-t border-sky-200/60 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-sky-800 mr-1">Hurtig-valg:</span>
+                {[10, 15, 20, 25, 30, 45, 60].map(v => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setVolumeM3(v)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                      volumeM3 === v
+                        ? 'bg-sky-700 text-white shadow-sm'
+                        : 'bg-white text-sky-800 border border-sky-200 hover:bg-sky-100'
+                    }`}
+                  >
+                    {v} m³
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Pump & Filter Section */}
+            <div className="space-y-6 pt-2">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                  Hvilken type pumpe har du?
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                  {PUMP_PRESETS.map(p => {
+                    const isSelected =
+                      p.id === 'pump_unknown'
+                        ? pumpType === 'unknown'
+                        : pumpType === p.type && pumpFlowM3h === p.flowM3h;
+
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => {
+                          setPumpType(p.type);
+                          setPumpFlowM3h(p.flowM3h);
+                        }}
+                        className={`p-3.5 rounded-xl border cursor-pointer transition flex space-x-3 items-center ${
+                          isSelected
+                            ? 'border-2 border-sky-500 bg-sky-50 shadow-sm'
+                            : 'border-slate-200 bg-white hover:bg-slate-50'
+                        }`}
+                      >
+                        <img
+                          src={p.imageUrl}
+                          alt={p.title}
+                          className="w-14 h-14 rounded-lg object-cover shrink-0 border border-slate-200"
+                        />
+                        <div>
+                          <div className="text-xs font-bold text-slate-800">
+                            {p.title}
+                          </div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">
+                            {p.id === 'pump_unknown'
+                              ? 'Vælg hvis du er usikker'
+                              : `Kapacitet: ~${p.flowM3h} m³/time`}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Camera / Photo Upload for Pump */}
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+                        <Camera className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800">
+                          {pumpType === 'unknown'
+                            ? '📸 Tag et billede af din pumpe / typeplade'
+                            : 'Valgfrit: Upload et billede af din pumpe'}
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          Billedet gemmes med dine oplysninger og kan vedhæftes i Facebook-opslag
+                        </div>
+                      </div>
+                    </div>
+
+                    <label className="px-3 py-1.5 rounded-lg bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs cursor-pointer transition flex items-center space-x-1.5 shadow-sm">
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>{pumpImage ? 'Skift Billede' : 'Tag / Vælg Billede'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handlePumpImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {pumpImage && (
+                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <img src={pumpImage} alt="Pumpe" className="w-12 h-12 rounded-lg object-cover border border-slate-300" />
+                        <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          Billede af pumpe gemt!
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPumpImage('')}
+                        className="text-[11px] text-rose-600 hover:underline font-semibold"
+                      >
+                        Slet billede
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Filter type & media selector */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                  Hvilket filtermedie bruger din pool? (Glas, bolde, sand, papir)
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                  {FILTER_PRESETS.map(f => (
+                    <div
+                      key={f.media}
+                      onClick={() => {
+                        setFilterType(f.type);
+                        setFilterMedia(f.media);
+                      }}
+                      className={`p-4 rounded-xl border cursor-pointer transition ${
+                        filterMedia === f.media
+                          ? 'border-2 border-sky-500 bg-sky-50 shadow-sm'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-sm text-slate-800">
+                          {f.title}
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          f.media === 'unknown'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-sky-100 text-sky-800'
+                        }`}>
+                          {f.badge}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        {f.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Camera / Photo Upload for Filter */}
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                        <Camera className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800">
+                          {filterMedia === 'unknown'
+                            ? '📸 Tag et billede af dit filter / din filtertank'
+                            : 'Valgfrit: Upload et billede af dit filter'}
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          Tag et billede af tanken, ventilen eller mediet til hjælp
+                        </div>
+                      </div>
+                    </div>
+
+                    <label className="px-3 py-1.5 rounded-lg bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs cursor-pointer transition flex items-center space-x-1.5 shadow-sm">
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>{filterImage ? 'Skift Billede' : 'Tag / Vælg Billede'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleFilterImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {filterImage && (
+                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <img src={filterImage} alt="Filter" className="w-12 h-12 rounded-lg object-cover border border-slate-300" />
+                        <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          Billede af filter gemt!
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setFilterImage('')}
+                        className="text-[11px] text-rose-600 hover:underline font-semibold"
+                      >
+                        Slet billede
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-200 flex items-center justify-end">
+            <button
+              onClick={() => setStep(2)}
+              className="flex items-center space-x-2 px-6 py-3 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-sm transition shadow-md"
+            >
+              <span>Næste: Vandets Udseende & Tilstand</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 2: WATER COLOR & SYMPTOMS & TEMPERATURE */}
+      {step === 2 && (
+        <div className="bg-white rounded-xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+          <div>
+            <h2 className="text-slate-800 font-bold mb-1 flex items-center text-sm uppercase tracking-wide">
+              <span className="w-2 h-4 bg-teal-500 rounded mr-2"></span>
+              2. Vandets Udseende, Farve & Symptomer
+            </h2>
+            <p className="text-xs text-slate-500 mb-4 pl-4">
+              Vandets farve og overflade giver direkte ledetråde om alger, jern eller kemisk ubalance.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {WATER_COLOR_OPTIONS.map(opt => (
+                <div
+                  key={opt.value}
+                  onClick={() => setWaterColor(opt.value)}
+                  className={`p-4 rounded-xl border cursor-pointer transition flex items-start space-x-3 ${
+                    waterColor === opt.value
+                      ? 'border-2 border-sky-500 bg-sky-50 shadow-sm'
+                      : 'border-slate-200 hover:bg-slate-50 bg-white'
+                  }`}
+                >
+                  <span className={`w-4 h-4 rounded-full mt-1 shrink-0 ${opt.dotColor}`} />
+                  <div>
+                    <div className="font-bold text-sm text-slate-800">
+                      {opt.label}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {opt.desc}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-200">
+            <h2 className="text-slate-800 font-bold mb-2 flex items-center text-sm uppercase tracking-wide">
+              <span className="w-2 h-4 bg-indigo-500 rounded mr-2"></span>
+              Oplever du andre symptomer eller tilstande?
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {SYMPTOM_OPTIONS.map(sym => (
+                <label
+                  key={sym.id}
+                  className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer text-xs font-medium transition ${
+                    symptoms.includes(sym.id)
+                      ? 'bg-sky-50 border-sky-500 text-sky-900 font-bold'
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={symptoms.includes(sym.id)}
+                    onChange={() => toggleSymptom(sym.id)}
+                    className="rounded text-sky-600 focus:ring-sky-500 h-4 w-4"
+                  />
+                  <span>{sym.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
+            <button
+              onClick={() => setStep(1)}
+              className="flex items-center space-x-2 px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-bold text-sm transition"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Tilbage</span>
+            </button>
+
+            <div className="flex items-center space-x-2 text-xs text-slate-600">
+              <Thermometer className="w-4 h-4 text-sky-600" />
+              <span className="font-semibold">Vandtemp:</span>
+              <input
+                type="number"
+                value={waterTempC}
+                onChange={e => setWaterTempC(Number(e.target.value))}
+                className="w-16 px-2 py-1 bg-slate-50 border border-slate-300 rounded text-center text-xs font-bold text-slate-800"
+              />
+              <span className="font-semibold">°C</span>
+            </div>
+
+            <button
+              onClick={() => setStep(3)}
+              className="flex items-center space-x-2 px-6 py-3 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-sm transition shadow-md"
+            >
+              <span>Næste: Klor & Saltvand</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 3: DESINFEKTION, KLOR & SALTVAND */}
+      {step === 3 && (
+        <div className="bg-white rounded-xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+          <div>
+            <h2 className="text-slate-800 font-bold mb-1 flex items-center text-sm uppercase tracking-wide">
+              <span className="w-2 h-4 bg-indigo-500 rounded mr-2"></span>
+              3. Desinfektion & Klor-Type
+            </h2>
+            <p className="text-xs text-slate-500 mb-4 pl-4">
+              Fortæl os om din pool bruger saltklorinator, tabletter, granulat eller klorfri midler.
+            </p>
+
+            {/* Saltwater query */}
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 mb-6">
+              <label className="block text-sm font-bold text-slate-800 mb-2">
+                Er det en saltvandspool med klorinator (saltcelle)?
+              </label>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => {
+                    setIsSaltwater(true);
+                    setSanitizerType('saltwater');
+                  }}
+                  className={`flex-1 py-3 px-4 rounded-xl border text-sm font-bold transition ${
+                    isSaltwater
+                      ? 'border-2 border-sky-500 bg-sky-50 text-sky-900 shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  Ja, Saltvand m. Klorinator
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsSaltwater(false);
+                    if (sanitizerType === 'saltwater') setSanitizerType('chlorine_granulate');
+                  }}
+                  className={`flex-1 py-3 px-4 rounded-xl border text-sm font-bold transition ${
+                    !isSaltwater
+                      ? 'border-2 border-sky-500 bg-sky-50 text-sky-900 shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  Nej, Almindelig Klor / Klorfri
+                </button>
+              </div>
+
+              {isSaltwater && (
+                <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-700">
+                    Målt saltkoncentration (hvis kendt):
+                  </span>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={saltGL}
+                      onChange={e => setSaltGL(Number(e.target.value))}
+                      className="w-20 px-2 py-1 bg-white border border-slate-300 rounded font-bold text-center text-slate-800"
+                    />
+                    <span className="text-slate-500">g/L (promille)</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Chlorine Type */}
+            {!isSaltwater && (
+              <div className="mb-6">
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                  Hvilken type klor / desinfektion bruges primært?
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    { id: 'chlorine_tablets', label: 'Klortabletter (Langsomklor / Multi-tabs 200g)', desc: 'Lægges i skimmer eller klor-dispenser' },
+                    { id: 'chlorine_granulate', label: 'Klor-granulat (Hurtigklor / Chokklor)', desc: 'Opløses i spand før tilsætning' },
+                    { id: 'liquid_chlorine', label: 'Flydende klor (Natriumhypoklorit)', desc: 'Ofte med automatisk doseringsanlæg' },
+                    { id: 'chlorine_free', label: 'Klorfri / Aktivt Ilt (Hydrogenperoxid)', desc: 'Skånsomt alternativ til følsom hud' },
+                  ].map(item => (
+                    <div
+                      key={item.id}
+                      onClick={() => setSanitizerType(item.id as SanitizerType)}
+                      className={`p-3.5 rounded-xl border cursor-pointer transition ${
+                        sanitizerType === item.id
+                          ? 'border-2 border-sky-500 bg-sky-50 shadow-sm'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="font-bold text-xs text-slate-800">
+                        {item.label}
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        {item.desc}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Stabilized chlorine query */}
+            <div className="p-4 bg-amber-50 rounded-xl border-l-4 border-amber-400">
+              <label className="block text-xs font-bold text-amber-900 uppercase tracking-wider mb-1">
+                Vigtigt spørgsmål: Bruges der STABILISERET klor?
+              </label>
+              <p className="text-xs text-amber-800 mb-3">
+                Stabiliseret klor indeholder Cyanursyre (CYA), som beskytter kloren mod solens UV-stråler, men kan ophobes og skabe <strong>Klorlås</strong> over tid.
+              </p>
+
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'yes', label: 'Ja, Stabiliseret' },
+                  { id: 'no', label: 'Nej, Ustabiliseret' },
+                  { id: 'unknown', label: 'Ved ikke' },
+                ].map(opt => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setIsStabilized(opt.id as StabilizedChlorineType)}
+                    className={`py-2 px-3 rounded-lg border text-xs font-bold transition ${
+                      isStabilized === opt.id
+                        ? 'border-2 border-amber-500 bg-white text-amber-900 shadow-sm'
+                        : 'border-amber-200 bg-amber-100/60 text-amber-800 hover:bg-white'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
+            <button
+              onClick={() => setStep(2)}
+              className="flex items-center space-x-2 px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-bold text-sm transition"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Tilbage</span>
+            </button>
+
+            <button
+              onClick={() => setStep(4)}
+              className="flex items-center space-x-2 px-6 py-3 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-sm transition shadow-md"
+            >
+              <span>Næste: Vandmålinger</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 4: WATER TEST MEASUREMENTS */}
+      {step === 4 && (
+        <div className="bg-white rounded-xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+          <div>
+            <h2 className="text-slate-800 font-bold mb-1 flex items-center text-sm uppercase tracking-wide">
+              <span className="w-2 h-4 bg-rose-500 rounded mr-2"></span>
+              4. Indtast dine seneste vandmålinger
+            </h2>
+            <p className="text-xs text-slate-500 mb-6 pl-4">
+              Målinger fra teststrimler, dråbesæt eller digital fotometer giver det mest præcise resultat.
+            </p>
+
+            {/* pH Input */}
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={hasMeasuredPh}
+                    onChange={e => setHasMeasuredPh(e.target.checked)}
+                    className="rounded text-sky-600 focus:ring-sky-500 h-4 w-4"
+                  />
+                  <span className="font-bold text-xs uppercase tracking-wide text-slate-700">
+                    pH Værdi (Ideel: 7.2 - 7.4)
+                  </span>
+                </div>
+                {hasMeasuredPh && (
+                  <span
+                    className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${
+                      phValue >= 7.2 && phValue <= 7.4
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {phValue.toFixed(1)}
+                  </span>
+                )}
+              </div>
+
+              {hasMeasuredPh && (
+                <div className="mt-3 space-y-2">
+                  <input
+                    type="range"
+                    min="6.2"
+                    max="8.4"
+                    step="0.1"
+                    value={phValue}
+                    onChange={e => setPhValue(Number(e.target.value))}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-sky-600"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                    <span>6.2</span>
+                    <span className="text-emerald-600 font-bold">7.2 - 7.4</span>
+                    <span>8.4</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Chlorine Input */}
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={hasMeasuredChlorine}
+                    onChange={e => setHasMeasuredChlorine(e.target.checked)}
+                    className="rounded text-sky-600 focus:ring-sky-500 h-4 w-4"
+                  />
+                  <span className="font-bold text-xs uppercase tracking-wide text-slate-700">
+                    Klor (ppm) (Ideel: 1.0 - 2.0 ppm)
+                  </span>
+                </div>
+                {hasMeasuredChlorine && (
+                  <span
+                    className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${
+                      chlorineValue >= 1.0 && chlorineValue <= 2.5
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {chlorineValue.toFixed(1)} ppm
+                  </span>
+                )}
+              </div>
+
+              {hasMeasuredChlorine && (
+                <div className="mt-3 space-y-2">
+                  <input
+                    type="range"
+                    min="0.0"
+                    max="6.0"
+                    step="0.1"
+                    value={chlorineValue}
+                    onChange={e => setChlorineValue(Number(e.target.value))}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-sky-600"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                    <span>0.0</span>
+                    <span className="text-emerald-600 font-bold">1.0 - 2.0</span>
+                    <span>6.0+</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Alkalinity Input */}
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={hasMeasuredAlkalinity}
+                    onChange={e => setHasMeasuredAlkalinity(e.target.checked)}
+                    className="rounded text-sky-600 focus:ring-sky-500 h-4 w-4"
+                  />
+                  <span className="font-bold text-xs uppercase tracking-wide text-slate-700">
+                    Alkalinitet (ppm) (Ideel: 80 - 120 ppm)
+                  </span>
+                </div>
+                {hasMeasuredAlkalinity && (
+                  <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-sky-100 text-sky-800">
+                    {alkalinityValue} ppm
+                  </span>
+                )}
+              </div>
+
+              {hasMeasuredAlkalinity && (
+                <div className="mt-3 space-y-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max="200"
+                    step="5"
+                    value={alkalinityValue}
+                    onChange={e => setAlkalinityValue(Number(e.target.value))}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-sky-600"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                    <span>0</span>
+                    <span className="text-emerald-600 font-bold">80 - 120</span>
+                    <span>200</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Cyanuric Acid (CYA) Input */}
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={hasMeasuredCya}
+                    onChange={e => setHasMeasuredCya(e.target.checked)}
+                    className="rounded text-sky-600 focus:ring-sky-500 h-4 w-4"
+                  />
+                  <span className="font-bold text-xs uppercase tracking-wide text-slate-700">
+                    Cyanursyre (CYA) (Ideel: 30 - 50 ppm)
+                  </span>
+                </div>
+                {hasMeasuredCya && (
+                  <span
+                    className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${
+                      cyaValue > 70
+                        ? 'bg-rose-100 text-rose-800'
+                        : 'bg-sky-100 text-sky-800'
+                    }`}
+                  >
+                    {cyaValue} ppm {cyaValue > 70 && '(Klorlås!)'}
+                  </span>
+                )}
+              </div>
+
+              {hasMeasuredCya && (
+                <div className="mt-3">
+                  <input
+                    type="number"
+                    value={cyaValue}
+                    onChange={e => setCyaValue(Number(e.target.value))}
+                    className="w-32 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm font-bold text-center text-slate-800"
+                  />
+                  {cyaValue > 70 && (
+                    <p className="text-xs text-rose-600 font-bold mt-1">
+                      Advarsel: Over 70 ppm betyder klorlås. Klor vil ikke længere desinficere.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
+            <button
+              onClick={() => setStep(3)}
+              className="flex items-center space-x-2 px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-bold text-sm transition"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Tilbage</span>
+            </button>
+
+            <button
+              onClick={handleCalculate}
+              className="w-full sm:w-auto py-4 px-8 bg-sky-700 text-white rounded-xl font-bold text-base shadow-lg hover:bg-sky-800 flex items-center justify-center transition-all group"
+            >
+              <Sparkles className="w-5 h-5 mr-2 text-sky-200" />
+              <span>Beregn Dosering & Generer Opslag</span>
+              <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 5: DIAGNOSTIC & FACEBOOK EXPORT CARD */}
+      {step === 5 && diagnosticResult && (
+        <div className="space-y-6">
+          {/* Status Header Banner */}
+          <div
+            className={`p-6 sm:p-8 rounded-xl border shadow-sm ${
+              diagnosticResult.status === 'perfect'
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
+                : diagnosticResult.status === 'critical'
+                ? 'bg-rose-50 border-rose-300 text-rose-950'
+                : 'bg-amber-50 border-amber-300 text-amber-950'
+            }`}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-center space-x-3">
+                {diagnosticResult.status === 'perfect' ? (
+                  <CheckCircle2 className="w-8 h-8 text-emerald-600 shrink-0" />
+                ) : diagnosticResult.status === 'critical' ? (
+                  <ShieldAlert className="w-8 h-8 text-rose-600 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-8 h-8 text-amber-600 shrink-0" />
+                )}
+                <div>
+                  <h3 className="text-xl font-bold">Diagnose Resultat</h3>
+                  <p className="text-sm font-medium mt-1 opacity-90">
+                    {diagnosticResult.summary}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setStep(1)}
+                  className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold border border-slate-300 shadow-sm transition flex items-center space-x-1"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Start Forfra</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Facebook Community Sharing Card */}
+          <div className="bg-sky-900 text-white rounded-xl p-6 shadow-md border border-sky-800 space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-11 h-11 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
+                  <Share2 className="w-6 h-6 text-sky-200" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-base flex items-center gap-2">
+                    Del & Få Hjælp på Facebook
+                    <span className="text-[10px] bg-sky-500/30 border border-sky-400/40 text-sky-100 px-2 py-0.5 rounded font-mono">
+                      1-Klik Kopi
+                    </span>
+                  </h4>
+                  <p className="text-xs text-sky-200 mt-0.5">
+                    Vil du spørge om råd i en poolgruppe (f.eks. 'Pool i Danmark')? Kopiér denne velstrukturerede oversigt direkte!
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2 w-full sm:w-auto shrink-0">
+                <button
+                  onClick={handleCopyFacebook}
+                  className={`flex-1 sm:flex-none px-5 py-3 rounded-xl font-bold text-xs transition flex items-center justify-center space-x-2 shadow-md ${
+                    copiedFacebook
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-white text-sky-900 hover:bg-sky-100'
+                  }`}
+                >
+                  {copiedFacebook ? (
+                    <>
+                      <Check className="w-4 h-4 text-white" />
+                      <span>Kopieret til udklipsholder!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 text-sky-900" />
+                      <span>Kopiér Facebook-Opslag</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setShowFacebookPreview(!showFacebookPreview)}
+                  className="px-3.5 py-3 rounded-xl bg-sky-800 hover:bg-sky-700 text-sky-200 text-xs font-bold border border-sky-700 transition"
+                  title="Vis/skjul tekst"
+                >
+                  {showFacebookPreview ? 'Skjul Tekst' : 'Vis Tekst'}
+                </button>
+              </div>
+            </div>
+
+            {copiedFacebook && (
+              <div className="p-3 bg-emerald-500/20 border border-emerald-400/30 rounded-lg text-emerald-200 text-xs font-semibold flex items-center space-x-2 animate-fade-in">
+                <Check className="w-4 h-4 text-emerald-300" />
+                <span>Teksten er nu kopieret! Åbn Facebook og tryk "Sæt ind" (Ctrl+V / Indsæt) i dit opret opslag-felt.</span>
+              </div>
+            )}
+
+            {showFacebookPreview && (
+              <div className="mt-4 pt-4 border-t border-sky-800/80 space-y-3">
+                <label className="block text-xs font-bold text-sky-200">
+                  Tilpas evt. dit spørgsmål til Facebook-gruppen:
+                </label>
+                <input
+                  type="text"
+                  value={customFacebookQuestion}
+                  onChange={e => setCustomFacebookQuestion(e.target.value)}
+                  className="w-full px-3 py-2 bg-sky-950/80 border border-sky-700 rounded-lg text-xs text-white placeholder-sky-400 font-medium"
+                />
+
+                <div className="relative">
+                  <pre className="p-4 bg-sky-950/90 rounded-lg border border-sky-700/60 text-[11px] font-mono text-sky-100 leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto">
+                    {generateFacebookText()}
+                  </pre>
+                  <button
+                    onClick={handleCopyFacebook}
+                    className="absolute top-3 right-3 p-1.5 bg-sky-800 hover:bg-sky-700 text-white rounded text-[10px] font-bold border border-sky-600 flex items-center gap-1"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Kopiér</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Critical Warnings */}
+          {diagnosticResult.warnings.length > 0 && (
+            <div className="p-5 bg-rose-50 border border-rose-200 rounded-xl">
+              <h4 className="text-sm font-bold text-rose-900 flex items-center gap-2 mb-2">
+                <ShieldAlert className="w-4 h-4 text-rose-600" />
+                Vigtige Advarsler & Bemærkninger
+              </h4>
+              <ul className="space-y-2">
+                {diagnosticResult.warnings.map((warn, i) => (
+                  <li key={i} className="text-xs text-rose-800 font-medium flex items-start space-x-2">
+                    <span className="text-rose-600">•</span>
+                    <span>{warn}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Water Color Diagnosis */}
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+            <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center">
+              <span className="w-2 h-4 bg-sky-500 rounded mr-2"></span>
+              Vandanalyse: {diagnosticResult.waterColorAnalysis.title}
+            </h4>
+            <p className="text-xs text-slate-600 mb-4 pl-4">
+              {diagnosticResult.waterColorAnalysis.description}
+            </p>
+
+            {diagnosticResult.waterColorAnalysis.immediateAction.length > 0 && (
+              <div className="p-4 bg-sky-50 rounded-xl border border-sky-200">
+                <span className="text-xs font-bold text-sky-900 block mb-2">
+                  Anbefalede Første-Trin:
+                </span>
+                <ol className="list-decimal list-inside space-y-1 text-xs text-slate-700">
+                  {diagnosticResult.waterColorAnalysis.immediateAction.map((act, idx) => (
+                    <li key={idx}>{act}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+          </div>
+
+          {/* Recommended Chemical Dosages */}
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <Droplets className="w-5 h-5 text-sky-600" />
+                Anbefalede Kemi-Doseringer ({volumeM3} m³ Pool)
+              </h4>
+            </div>
+
+            {diagnosticResult.chemicalActions.length === 0 ? (
+              <div className="p-4 bg-emerald-50 rounded-xl text-center text-xs font-bold text-emerald-800 border border-emerald-200">
+                Ingen kemikalier skal tilsættes p.t. Dine målinger er perfekte!
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {diagnosticResult.chemicalActions.map((action, idx) => (
+                  <div
+                    key={idx}
+                    className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-bold text-sm text-slate-900">
+                          {action.title}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                            action.priority === 'high'
+                              ? 'bg-rose-100 text-rose-800'
+                              : 'bg-sky-100 text-sky-800'
+                          }`}
+                        >
+                          {action.priority === 'high' ? 'Høj prioritet' : 'Anbefalet'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        {action.instructions}
+                      </p>
+                    </div>
+
+                    <div className="shrink-0 text-right sm:border-l sm:border-slate-200 sm:pl-4">
+                      <span className="text-[10px] uppercase text-slate-400 font-bold block">
+                        Dosis:
+                      </span>
+                      <span className="text-base font-black text-sky-700">
+                        {action.doseAmount}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Filter & Pump Advice */}
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <h4 className="text-base font-bold text-slate-800 flex items-center gap-2">
+              <Filter className="w-5 h-5 text-sky-600" />
+              Pumpe & Filter Vedligeholdelse
+            </h4>
+
+            <div className="p-4 bg-slate-50 rounded-xl text-xs space-y-2 border border-slate-200">
+              <div className="flex items-center justify-between font-bold text-slate-800 pb-2 border-b border-slate-200">
+                <span>Anbefalet pumpetid pr. døgn:</span>
+                <span className="text-sky-700 font-extrabold text-sm">
+                  {diagnosticResult.recommendedPumpHours} Timer/Døgn
+                </span>
+              </div>
+
+              {diagnosticResult.filterAndPumpAdvice.map((advice, idx) => (
+                <p key={idx} className="text-slate-700 leading-relaxed pt-1">
+                  • {advice}
+                </p>
+              ))}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-2">
+            <button
+              onClick={handleSaveToLog}
+              disabled={isSaved}
+              className={`w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-xs transition flex items-center justify-center space-x-2 ${
+                isSaved
+                  ? 'bg-emerald-100 text-emerald-800 cursor-default border border-emerald-300'
+                  : 'bg-slate-800 hover:bg-slate-700 text-white shadow-md'
+              }`}
+            >
+              <Check className="w-4 h-4" />
+              <span>{isSaved ? 'Måling Gemt i Historik' : 'Gem Måling i Historik'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
