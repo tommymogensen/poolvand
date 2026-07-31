@@ -495,11 +495,6 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
                             : 'border-slate-200 bg-white hover:bg-slate-50'
                         }`}
                       >
-                        <img
-                          src={p.imageUrl}
-                          alt={p.title}
-                          className="w-14 h-14 rounded-lg object-cover shrink-0 border border-slate-200"
-                        />
                         <div>
                           <div className="text-xs font-bold text-slate-800">
                             {p.title}
