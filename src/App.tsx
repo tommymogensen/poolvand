@@ -1,51 +1,14 @@
 import React, { useState } from 'react';
-import { PoolProfile, WaterTest } from './types';
+import { PoolProfile } from './types';
 import { DEFAULT_PROFILE } from './lib/constants';
 import { Header } from './components/Header';
 import { DiagnosticWizard } from './components/DiagnosticWizard';
 
 export default function App() {
-  // LocalStorage state for Pool Profile
-  const [profile, setProfile] = useState<PoolProfile>(() => {
-    try {
-      const saved = localStorage.getItem('pool_profile');
-      return saved ? JSON.parse(saved) : DEFAULT_PROFILE;
-    } catch {
-      return DEFAULT_PROFILE;
-    }
-  });
+  const [profile, setProfile] = useState<PoolProfile>(DEFAULT_PROFILE);
 
-  // LocalStorage state for Water Test Log
-  const [, setTests] = useState<WaterTest[]>(() => {
-    try {
-      const saved = localStorage.getItem('pool_test_history');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  // Persist profile changes
   const handleUpdateProfile = (updated: PoolProfile) => {
     setProfile(updated);
-    try {
-      localStorage.setItem('pool_profile', JSON.stringify(updated));
-    } catch (err) {
-      console.error('Failed to save profile to localStorage', err);
-    }
-  };
-
-  // Persist test log internally
-  const handleSaveTest = (test: WaterTest) => {
-    setTests(prev => {
-      const updated = [test, ...prev];
-      try {
-        localStorage.setItem('pool_test_history', JSON.stringify(updated));
-      } catch (err) {
-        console.error('Failed to save test history', err);
-      }
-      return updated;
-    });
   };
 
   return (
@@ -58,7 +21,6 @@ export default function App() {
         <DiagnosticWizard
           profile={profile}
           onUpdateProfile={handleUpdateProfile}
-          onSaveTest={handleSaveTest}
         />
       </main>
 
@@ -80,4 +42,3 @@ export default function App() {
     </div>
   );
 }
-

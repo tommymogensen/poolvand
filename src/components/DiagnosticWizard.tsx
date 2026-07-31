@@ -43,13 +43,11 @@ import {
 interface DiagnosticWizardProps {
   profile: PoolProfile;
   onUpdateProfile: (updated: PoolProfile) => void;
-  onSaveTest: (test: WaterTest) => void;
 }
 
 export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
   profile,
-  onUpdateProfile,
-  onSaveTest
+  onUpdateProfile
 }) => {
   // Wizard steps:
   // 1: Basis-info (Pool-størrelse, pumpe & filter)
@@ -97,7 +95,6 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
 
   // Results & History status
   const [diagnosticResult, setDiagnosticResult] = useState<DiagnosticResult | null>(null);
-  const [isSaved, setIsSaved] = useState<boolean>(false);
 
   // Facebook share state
   const [copiedFacebook, setCopiedFacebook] = useState<boolean>(false);
@@ -237,14 +234,8 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
     const res = calculateDiagnostic(updatedProfile, test);
     setDiagnosticResult(res);
     setStep(5);
-    setIsSaved(false);
     setShareUrl('');
     setShareError('');
-  };
-
-  const handleSaveToLog = () => {
-    onSaveTest(buildTest());
-    setIsSaved(true);
   };
 
   const handleCreateShare = async () => {
@@ -1305,21 +1296,6 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-2">
-            <button
-              onClick={handleSaveToLog}
-              disabled={isSaved}
-              className={`w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-xs transition flex items-center justify-center space-x-2 ${
-                isSaved
-                  ? 'bg-emerald-100 text-emerald-800 cursor-default border border-emerald-300'
-                  : 'bg-slate-800 hover:bg-slate-700 text-white shadow-md'
-              }`}
-            >
-              <Check className="w-4 h-4" />
-              <span>{isSaved ? 'Måling Gemt i Historik' : 'Gem Måling i Historik'}</span>
-            </button>
-          </div>
         </div>
       )}
     </div>
