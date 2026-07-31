@@ -69,9 +69,12 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
   const [pumpType, setPumpType] = useState<PumpType>(profile.pumpType || 'standard');
   const [pumpFlowM3h, setPumpFlowM3h] = useState<number>(profile.pumpFlowM3h || 8);
   const [pumpImage, setPumpImage] = useState<string>(profile.customPumpImageUrl || '');
+  const [poolWaterImage, setPoolWaterImage] = useState<string>(profile.customPoolWaterImageUrl || '');
   const [filterType, setFilterType] = useState<FilterType>(profile.filterType || 'sand_glass');
   const [filterMedia, setFilterMedia] = useState<FilterMedia>(profile.filterMedia || 'glass');
   const [filterImage, setFilterImage] = useState<string>(profile.customFilterImageUrl || '');
+  const [disinfectionImage, setDisinfectionImage] = useState<string>(profile.customDisinfectionImageUrl || '');
+  const [measurementImage, setMeasurementImage] = useState<string>('');
 
   // Sanitizer state
   const [isSaltwater, setIsSaltwater] = useState<boolean>(profile.isSaltwaterWithChlorinator || false);
@@ -113,9 +116,11 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
     pumpType,
     pumpFlowM3h,
     customPumpImageUrl: pumpImage,
+    customPoolWaterImageUrl: poolWaterImage,
     filterType,
     filterMedia,
     customFilterImageUrl: filterImage,
+    customDisinfectionImageUrl: disinfectionImage,
     isSaltwaterWithChlorinator: isSaltwater,
     sanitizerType: isSaltwater ? 'saltwater' : sanitizerType,
     isStabilizedChlorine: isStabilized,
@@ -133,6 +138,7 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
     waterColor,
     waterSymptoms: symptoms,
     waterTempC,
+    measurementImageUrl: measurementImage,
   });
 
   useEffect(() => {
@@ -151,9 +157,11 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
         setPumpType(sharedProfile.pumpType);
         setPumpFlowM3h(sharedProfile.pumpFlowM3h);
         setPumpImage(sharedProfile.customPumpImageUrl || '');
+        setPoolWaterImage(sharedProfile.customPoolWaterImageUrl || '');
         setFilterType(sharedProfile.filterType);
         setFilterMedia(sharedProfile.filterMedia);
         setFilterImage(sharedProfile.customFilterImageUrl || '');
+        setDisinfectionImage(sharedProfile.customDisinfectionImageUrl || '');
         setIsSaltwater(sharedProfile.isSaltwaterWithChlorinator);
         setSanitizerType(sharedProfile.sanitizerType);
         setIsStabilized(sharedProfile.isStabilizedChlorine);
@@ -161,6 +169,7 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
         setWaterColor(sharedTest.waterColor);
         setSymptoms(sharedTest.waterSymptoms || []);
         setWaterTempC(sharedTest.waterTempC || 24);
+        setMeasurementImage(sharedTest.measurementImageUrl || '');
         setHasMeasuredPh(sharedTest.ph !== null);
         setPhValue(sharedTest.ph ?? 7.6);
         setHasMeasuredChlorine(sharedTest.freeChlorinePpm !== null);
@@ -206,6 +215,17 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleImageUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setImage: React.Dispatch<React.SetStateAction<string>>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => setImage(reader.result as string);
+    reader.readAsDataURL(file);
   };
 
   // Run computation
@@ -441,6 +461,21 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800">Billede af pool eller vand</h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Valgfrit: vis poolens udseende i den delte diagnose.</p>
+                </div>
+                <label className="cursor-pointer px-3 py-2 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-2">
+                  <Camera className="w-4 h-4" />
+                  Upload
+                  <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e, setPoolWaterImage)} />
+                </label>
+              </div>
+              {poolWaterImage && <img src={poolWaterImage} alt="Uploadet billede af pool eller vand" className="w-full max-h-56 object-cover rounded-lg border border-slate-200" />}
             </div>
 
             {/* Pump & Filter Section */}
@@ -872,6 +907,21 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
                 ))}
               </div>
             </div>
+
+            <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800">Billede af desinfektion</h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Valgfrit: fx klorprodukt, saltanlæg eller doseringsudstyr.</p>
+                </div>
+                <label className="cursor-pointer px-3 py-2 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-2">
+                  <Camera className="w-4 h-4" />
+                  Upload
+                  <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e, setDisinfectionImage)} />
+                </label>
+              </div>
+              {disinfectionImage && <img src={disinfectionImage} alt="Uploadet billede af desinfektion" className="w-full max-h-56 object-cover rounded-lg border border-slate-200" />}
+            </div>
           </div>
 
           <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
@@ -1084,6 +1134,21 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
                 </div>
               )}
             </div>
+
+            <div className="mt-5 p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800">Billede af vandmålinger</h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Valgfrit: upload fx teststrimmel, dråbetest eller fotometer.</p>
+                </div>
+                <label className="cursor-pointer px-3 py-2 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-2">
+                  <Camera className="w-4 h-4" />
+                  Upload
+                  <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e, setMeasurementImage)} />
+                </label>
+              </div>
+              {measurementImage && <img src={measurementImage} alt="Uploadet billede af vandmålinger" className="w-full max-h-56 object-cover rounded-lg border border-slate-200" />}
+            </div>
           </div>
 
           <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
@@ -1132,6 +1197,7 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
                   <span className="text-slate-500 block mb-1">Symptomer</span>
                   <span className="font-semibold text-slate-800">{selectedSymptoms.length ? selectedSymptoms.map(symptom => symptom.label).join(', ') : 'Ingen angivet'}</span>
                 </div>
+                {poolWaterImage && <img src={poolWaterImage} alt="Uploadet billede af pool eller vand" className="w-full h-40 object-cover rounded-lg border border-slate-200 mt-3" />}
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2 text-xs">
@@ -1139,6 +1205,7 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
                 <div className="flex justify-between gap-3"><span className="text-slate-500">Metode</span><span className="font-semibold text-slate-800 text-right">{sanitizerLabel}</span></div>
                 {isSaltwater && <div className="flex justify-between gap-3"><span className="text-slate-500">Saltindhold</span><span className="font-semibold text-slate-800">{saltGL} g/L</span></div>}
                 <div className="flex justify-between gap-3"><span className="text-slate-500">Stabiliseret klor</span><span className="font-semibold text-slate-800">{isStabilized === 'yes' ? 'Ja' : isStabilized === 'no' ? 'Nej' : 'Ukendt'}</span></div>
+                {disinfectionImage && <img src={disinfectionImage} alt="Uploadet billede af desinfektion" className="w-full h-40 object-cover rounded-lg border border-slate-200 mt-3" />}
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2 text-xs">
@@ -1164,6 +1231,7 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
                 <div><span className="text-slate-500 block">Alkalinitet</span><span className="font-bold text-slate-800">{hasMeasuredAlkalinity ? `${alkalinityValue} ppm` : 'Ikke målt'}</span></div>
                 <div><span className="text-slate-500 block">Cyanursyre</span><span className="font-bold text-slate-800">{hasMeasuredCya ? `${cyaValue} ppm` : 'Ikke målt'}</span></div>
               </div>
+              {measurementImage && <img src={measurementImage} alt="Uploadet billede af vandmålinger" className="w-full max-h-64 object-cover rounded-lg border border-sky-200 mt-4" />}
             </div>
           </div>
 

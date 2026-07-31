@@ -34,6 +34,8 @@ export interface PoolProfile {
   pumpName?: string;
   pumpImagePreset?: string;
   customPumpImageUrl?: string;
+  customPoolWaterImageUrl?: string;
+  customDisinfectionImageUrl?: string;
   filterType: FilterType;
   filterMedia: FilterMedia;
   customFilterImageUrl?: string;
@@ -53,6 +55,7 @@ export interface WaterTest {
   waterTempC: number | null;
   notes?: string;
   photoUrl?: string;
+  measurementImageUrl?: string;
 }
 
 export interface ChemicalAction {
