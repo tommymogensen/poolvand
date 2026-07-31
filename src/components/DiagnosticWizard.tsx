@@ -353,6 +353,20 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
     setTimeout(() => setCopiedFacebook(false), 4000);
   };
 
+  const selectedPump = PUMP_PRESETS.find(p => p.type === pumpType && p.flowM3h === pumpFlowM3h);
+  const selectedFilter = FILTER_PRESETS.find(f => f.type === filterType && f.media === filterMedia);
+  const selectedColor = WATER_COLOR_OPTIONS.find(color => color.value === waterColor);
+  const selectedSymptoms = SYMPTOM_OPTIONS.filter(symptom => symptoms.includes(symptom.id));
+  const sanitizerLabel = isSaltwater
+    ? 'Saltvand med klorinator'
+    : sanitizerType === 'chlorine_tablets'
+    ? 'Klortabletter'
+    : sanitizerType === 'chlorine_granulate'
+    ? 'Klor-granulat'
+    : sanitizerType === 'liquid_chlorine'
+    ? 'Flydende klor'
+    : 'Klorfri / aktivt ilt';
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
       {/* Wizard Header / Step Progress Indicator */}
@@ -1149,6 +1163,63 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>Start Forfra</span>
                 </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Complete input summary */}
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm space-y-5">
+            <div>
+              <h4 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <Layers className="w-5 h-5 text-sky-600" />
+                Dine indtastninger
+              </h4>
+              <p className="text-xs text-slate-600 mt-1">
+                Hele grundlaget for denne diagnose — klar til at gennemgå eller dele.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2 text-xs">
+                <h5 className="font-bold text-slate-800">Pool & vand</h5>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Poolstørrelse</span><span className="font-semibold text-slate-800">{volumeM3} m³ ({volumeM3 * 1000} L)</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Vandtemperatur</span><span className="font-semibold text-slate-800">{waterTempC} °C</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Vandets udseende</span><span className="font-semibold text-slate-800 text-right">{selectedColor?.label || 'Ikke angivet'}</span></div>
+                <div className="pt-2 border-t border-slate-200">
+                  <span className="text-slate-500 block mb-1">Symptomer</span>
+                  <span className="font-semibold text-slate-800">{selectedSymptoms.length ? selectedSymptoms.map(symptom => symptom.label).join(', ') : 'Ingen angivet'}</span>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2 text-xs">
+                <h5 className="font-bold text-slate-800">Desinfektion</h5>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Metode</span><span className="font-semibold text-slate-800 text-right">{sanitizerLabel}</span></div>
+                {isSaltwater && <div className="flex justify-between gap-3"><span className="text-slate-500">Saltindhold</span><span className="font-semibold text-slate-800">{saltGL} g/L</span></div>}
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Stabiliseret klor</span><span className="font-semibold text-slate-800">{isStabilized === 'yes' ? 'Ja' : isStabilized === 'no' ? 'Nej' : 'Ukendt'}</span></div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2 text-xs">
+                <h5 className="font-bold text-slate-800">Pumpe</h5>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Type</span><span className="font-semibold text-slate-800 text-right">{selectedPump?.title || (pumpType === 'unknown' ? 'Ukendt' : pumpType)}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Kapacitet</span><span className="font-semibold text-slate-800">{pumpFlowM3h} m³/t</span></div>
+                {pumpImage && <img src={pumpImage} alt="Uploadet billede af pumpe" className="w-full h-40 object-cover rounded-lg border border-slate-200 mt-3" />}
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2 text-xs">
+                <h5 className="font-bold text-slate-800">Filter</h5>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Filtertype</span><span className="font-semibold text-slate-800 text-right">{selectedFilter?.title || 'Ukendt'}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Filtermedie</span><span className="font-semibold text-slate-800">{selectedFilter?.badge || filterMedia}</span></div>
+                {filterImage && <img src={filterImage} alt="Uploadet billede af filter" className="w-full h-40 object-cover rounded-lg border border-slate-200 mt-3" />}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-sky-100 bg-sky-50 p-4">
+              <h5 className="font-bold text-sky-950 text-sm mb-3">Vandmålinger</h5>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div><span className="text-slate-500 block">pH</span><span className="font-bold text-slate-800">{hasMeasuredPh ? phValue.toFixed(1) : 'Ikke målt'}</span></div>
+                <div><span className="text-slate-500 block">Frit klor</span><span className="font-bold text-slate-800">{hasMeasuredChlorine ? `${chlorineValue.toFixed(1)} ppm` : 'Ikke målt'}</span></div>
+                <div><span className="text-slate-500 block">Alkalinitet</span><span className="font-bold text-slate-800">{hasMeasuredAlkalinity ? `${alkalinityValue} ppm` : 'Ikke målt'}</span></div>
+                <div><span className="text-slate-500 block">Cyanursyre</span><span className="font-bold text-slate-800">{hasMeasuredCya ? `${cyaValue} ppm` : 'Ikke målt'}</span></div>
               </div>
             </div>
           </div>
