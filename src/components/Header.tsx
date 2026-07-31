@@ -14,7 +14,7 @@ export const Header: React.FC = () => {
             </div>
             <div>
               <h1 className="text-base sm:text-xl font-bold tracking-tight text-white">
-                Præcis Pool Kemi & Facebook Opslagshjælper
+                Pool Facebook Opslagshjælper
               </h1>
             </div>
           </div>
