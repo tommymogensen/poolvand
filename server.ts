@@ -10,6 +10,7 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 const sharedDiagnosesFile = path.join(process.env.DATA_DIR || path.join(process.cwd(), 'data'), 'shared-diagnoses.json');
+const sharedDiagnosisLifetimeMs = 14 * 24 * 60 * 60 * 1000;
 
 app.use(express.json({ limit: '20mb' }));
 
@@ -31,7 +32,19 @@ async function readSharedDiagnoses(): Promise<SharedDiagnosis[]> {
   try {
     const contents = await fs.readFile(sharedDiagnosesFile, 'utf8');
     const records = JSON.parse(contents);
-    return Array.isArray(records) ? records : [];
+    if (!Array.isArray(records)) return [];
+
+    const now = Date.now();
+    const activeRecords = records.filter(record => {
+      const createdAt = Date.parse(record.createdAt);
+      return Number.isFinite(createdAt) && now - createdAt < sharedDiagnosisLifetimeMs;
+    });
+
+    if (activeRecords.length !== records.length) {
+      await writeSharedDiagnoses(activeRecords);
+    }
+
+    return activeRecords;
   } catch (error: any) {
     if (error?.code === 'ENOENT') return [];
     throw error;
@@ -44,6 +57,13 @@ async function writeSharedDiagnoses(records: SharedDiagnosis[]) {
   await fs.writeFile(temporaryFile, JSON.stringify(records), 'utf8');
   await fs.rename(temporaryFile, sharedDiagnosesFile);
 }
+
+const cleanupSharedDiagnoses = () => {
+  readSharedDiagnoses().catch(error => console.error('Unable to remove expired shared diagnoses:', error));
+};
+
+cleanupSharedDiagnoses();
+setInterval(cleanupSharedDiagnoses, 60 * 60 * 1000).unref();
 
 app.post('/api/shared-diagnoses', async (req, res) => {
   const { profile, test, result, facebookQuestion } = req.body || {};

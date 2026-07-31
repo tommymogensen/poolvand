@@ -1250,6 +1250,10 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
               )}
             </div>
 
+            <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-3">
+              Af hensyn til privatliv slettes den gemte diagnose, inklusive eventuelle billeder, automatisk 14 dage efter oprettelsen.
+            </p>
+
             {shareError && (
               <p className="text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-3">
                 {shareError}
