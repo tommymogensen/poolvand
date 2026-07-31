@@ -41,3 +41,7 @@ Deploy:
 5. Deploy appen.
 
 Appen bruger PORT fra miljoevariabler automatisk (CapRover-kompatibelt).
+
+### Delbare diagnoser
+
+Resultatsiden kan gemme en diagnose og oprette et unikt delingslink, som kan indsættes i fx et Facebook-opslag. I CapRover skal du oprette en persistent mappe, der mapper `/app/data` i containeren, så links fortsat virker efter nye deploys.

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   WaterColor,
   PoolProfile,
@@ -102,6 +102,80 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
   const [customFacebookQuestion, setCustomFacebookQuestion] = useState<string>(
     'Hvad er jeres erfaring eller bedste råd til mine målinger? På forhånd mange tak!'
   );
+  const [shareUrl, setShareUrl] = useState<string>('');
+  const [isCreatingShare, setIsCreatingShare] = useState<boolean>(false);
+  const [shareError, setShareError] = useState<string>('');
+  const [copiedShareUrl, setCopiedShareUrl] = useState<boolean>(false);
+
+  const buildProfile = (): PoolProfile => ({
+    ...profile,
+    volumeM3,
+    pumpType,
+    pumpFlowM3h,
+    customPumpImageUrl: pumpImage,
+    filterType,
+    filterMedia,
+    customFilterImageUrl: filterImage,
+    isSaltwaterWithChlorinator: isSaltwater,
+    sanitizerType: isSaltwater ? 'saltwater' : sanitizerType,
+    isStabilizedChlorine: isStabilized,
+    saltGramsPerLiter: saltGL,
+  });
+
+  const buildTest = (): WaterTest => ({
+    id: Date.now().toString(),
+    date: new Date().toISOString(),
+    ph: hasMeasuredPh ? phValue : null,
+    freeChlorinePpm: hasMeasuredChlorine ? chlorineValue : null,
+    alkalinityPpm: hasMeasuredAlkalinity ? alkalinityValue : null,
+    cyanuricAcidPpm: hasMeasuredCya ? cyaValue : null,
+    saltGramsPerLiter: isSaltwater ? saltGL : null,
+    waterColor,
+    waterSymptoms: symptoms,
+    waterTempC,
+  });
+
+  useEffect(() => {
+    const sharedId = new URLSearchParams(window.location.search).get('diagnose');
+    if (!sharedId) return;
+
+    fetch(`/api/shared-diagnoses/${encodeURIComponent(sharedId)}`)
+      .then(async response => {
+        if (!response.ok) throw new Error('Delingslinket findes ikke eller er udløbet.');
+        return response.json();
+      })
+      .then(shared => {
+        const sharedProfile = shared.profile as PoolProfile;
+        const sharedTest = shared.test as WaterTest;
+        setVolumeM3(sharedProfile.volumeM3);
+        setPumpType(sharedProfile.pumpType);
+        setPumpFlowM3h(sharedProfile.pumpFlowM3h);
+        setPumpImage(sharedProfile.customPumpImageUrl || '');
+        setFilterType(sharedProfile.filterType);
+        setFilterMedia(sharedProfile.filterMedia);
+        setFilterImage(sharedProfile.customFilterImageUrl || '');
+        setIsSaltwater(sharedProfile.isSaltwaterWithChlorinator);
+        setSanitizerType(sharedProfile.sanitizerType);
+        setIsStabilized(sharedProfile.isStabilizedChlorine);
+        setSaltGL(sharedProfile.saltGramsPerLiter || 3.5);
+        setWaterColor(sharedTest.waterColor);
+        setSymptoms(sharedTest.waterSymptoms || []);
+        setWaterTempC(sharedTest.waterTempC || 24);
+        setHasMeasuredPh(sharedTest.ph !== null);
+        setPhValue(sharedTest.ph ?? 7.6);
+        setHasMeasuredChlorine(sharedTest.freeChlorinePpm !== null);
+        setChlorineValue(sharedTest.freeChlorinePpm ?? 0.2);
+        setHasMeasuredAlkalinity(sharedTest.alkalinityPpm !== null);
+        setAlkalinityValue(sharedTest.alkalinityPpm ?? 100);
+        setHasMeasuredCya(sharedTest.cyanuricAcidPpm !== null);
+        setCyaValue(sharedTest.cyanuricAcidPpm ?? 40);
+        setDiagnosticResult(shared.result as DiagnosticResult);
+        setCustomFacebookQuestion(shared.facebookQuestion || '');
+        setShareUrl(window.location.href);
+        setStep(5);
+      })
+      .catch(error => setShareError(error.message));
+  }, []);
 
   // Toggle symptom selection
   const toggleSymptom = (id: string) => {
@@ -136,55 +210,64 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
 
   // Run computation
   const handleCalculate = () => {
-    const updatedProfile: PoolProfile = {
-      ...profile,
-      volumeM3,
-      pumpType,
-      pumpFlowM3h,
-      customPumpImageUrl: pumpImage,
-      filterType,
-      filterMedia,
-      customFilterImageUrl: filterImage,
-      isSaltwaterWithChlorinator: isSaltwater,
-      sanitizerType: isSaltwater ? 'saltwater' : sanitizerType,
-      isStabilizedChlorine: isStabilized,
-      saltGramsPerLiter: saltGL,
-    };
+    const updatedProfile = buildProfile();
     onUpdateProfile(updatedProfile);
-
-    const test: WaterTest = {
-      id: Date.now().toString(),
-      date: new Date().toISOString(),
-      ph: hasMeasuredPh ? phValue : null,
-      freeChlorinePpm: hasMeasuredChlorine ? chlorineValue : null,
-      alkalinityPpm: hasMeasuredAlkalinity ? alkalinityValue : null,
-      cyanuricAcidPpm: hasMeasuredCya ? cyaValue : null,
-      saltGramsPerLiter: isSaltwater ? saltGL : null,
-      waterColor,
-      waterSymptoms: symptoms,
-      waterTempC,
-    };
+    const test = buildTest();
 
     const res = calculateDiagnostic(updatedProfile, test);
     setDiagnosticResult(res);
     setStep(5);
     setIsSaved(false);
+    setShareUrl('');
+    setShareError('');
   };
 
   const handleSaveToLog = () => {
-    const test: WaterTest = {
-      id: Date.now().toString(),
-      date: new Date().toISOString(),
-      ph: hasMeasuredPh ? phValue : null,
-      freeChlorinePpm: hasMeasuredChlorine ? chlorineValue : null,
-      alkalinityPpm: hasMeasuredAlkalinity ? alkalinityValue : null,
-      cyanuricAcidPpm: hasMeasuredCya ? cyaValue : null,
-      waterColor,
-      waterSymptoms: symptoms,
-      waterTempC,
-    };
-    onSaveTest(test);
+    onSaveTest(buildTest());
     setIsSaved(true);
+  };
+
+  const handleCreateShare = async () => {
+    if (!diagnosticResult) return;
+    setIsCreatingShare(true);
+    setShareError('');
+
+    try {
+      const response = await fetch('/api/shared-diagnoses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile: buildProfile(),
+          test: buildTest(),
+          result: diagnosticResult,
+          facebookQuestion: customFacebookQuestion,
+        }),
+      });
+      const saved = await response.json();
+      if (!response.ok) throw new Error(saved.error || 'Kunne ikke oprette delingslinket.');
+
+      const url = `${window.location.origin}${window.location.pathname}?diagnose=${saved.id}`;
+      window.history.replaceState({}, '', url);
+      setShareUrl(url);
+    } catch (error: any) {
+      setShareError(error.message || 'Kunne ikke oprette delingslinket.');
+    } finally {
+      setIsCreatingShare(false);
+    }
+  };
+
+  const handleCopyShareUrl = () => {
+    if (!shareUrl) return;
+    const copied = () => {
+      setCopiedShareUrl(true);
+      setTimeout(() => setCopiedShareUrl(false), 4000);
+    };
+
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(shareUrl).then(copied).catch(() => fallbackCopy(shareUrl));
+    } else {
+      fallbackCopy(shareUrl);
+    }
   };
 
   // Generate clean formatted text post for Facebook pool groups
@@ -241,6 +324,7 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
     }
 
     text += `💬 **Spørgsmål til gruppen:** ${customFacebookQuestion || 'Hvad vil I anbefale som næste skridt?'}`;
+    if (shareUrl) text += `\n\n🔗 Se hele diagnosen: ${shareUrl}`;
     return text;
   };
 
@@ -1156,6 +1240,58 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
             )}
           </div>
 
+          {/* Permanent share link */}
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h4 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <Share2 className="w-5 h-5 text-sky-600" />
+                  Gem og del diagnosen
+                </h4>
+                <p className="text-xs text-slate-600 mt-1">
+                  Opret et permanent link med et unikt ID, som kan indsættes i fx Facebook.
+                </p>
+              </div>
+              {!shareUrl && (
+                <button
+                  onClick={handleCreateShare}
+                  disabled={isCreatingShare}
+                  className="w-full sm:w-auto px-5 py-3 rounded-xl bg-sky-700 hover:bg-sky-800 disabled:bg-sky-300 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>{isCreatingShare ? 'Gemmer...' : 'Gem & få delingslink'}</span>
+                </button>
+              )}
+            </div>
+
+            {shareError && (
+              <p className="text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-3">
+                {shareError}
+              </p>
+            )}
+
+            {shareUrl && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-2">
+                <p className="text-xs font-bold text-emerald-900">Dit delingslink er klar</p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    readOnly
+                    value={shareUrl}
+                    aria-label="Delingslink"
+                    className="min-w-0 flex-1 px-3 py-2 rounded-lg border border-emerald-200 bg-white text-xs text-slate-700"
+                  />
+                  <button
+                    onClick={handleCopyShareUrl}
+                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-2"
+                  >
+                    {copiedShareUrl ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    <span>{copiedShareUrl ? 'Kopieret' : 'Kopiér link'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Critical Warnings */}
           {diagnosticResult.warnings.length > 0 && (
             <div className="p-5 bg-rose-50 border border-rose-200 rounded-xl">
@@ -1295,4 +1431,3 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
     </div>
   );
 };
-

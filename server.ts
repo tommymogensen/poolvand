@@ -1,5 +1,7 @@
 import express from 'express';
 import path from 'path';
+import { randomUUID } from 'node:crypto';
+import fs from 'node:fs/promises';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 
@@ -7,12 +9,77 @@ dotenv.config();
 
 const app = express();
 const PORT = 3000;
+const sharedDiagnosesFile = path.join(process.env.DATA_DIR || path.join(process.cwd(), 'data'), 'shared-diagnoses.json');
 
 app.use(express.json({ limit: '20mb' }));
 
 // Health endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+type SharedDiagnosis = {
+  id: string;
+  createdAt: string;
+  profile: unknown;
+  test: unknown;
+  result: unknown;
+  facebookQuestion?: string;
+};
+
+async function readSharedDiagnoses(): Promise<SharedDiagnosis[]> {
+  try {
+    const contents = await fs.readFile(sharedDiagnosesFile, 'utf8');
+    const records = JSON.parse(contents);
+    return Array.isArray(records) ? records : [];
+  } catch (error: any) {
+    if (error?.code === 'ENOENT') return [];
+    throw error;
+  }
+}
+
+async function writeSharedDiagnoses(records: SharedDiagnosis[]) {
+  await fs.mkdir(path.dirname(sharedDiagnosesFile), { recursive: true });
+  const temporaryFile = `${sharedDiagnosesFile}.tmp`;
+  await fs.writeFile(temporaryFile, JSON.stringify(records), 'utf8');
+  await fs.rename(temporaryFile, sharedDiagnosesFile);
+}
+
+app.post('/api/shared-diagnoses', async (req, res) => {
+  const { profile, test, result, facebookQuestion } = req.body || {};
+
+  if (!profile || !test || !result || typeof profile !== 'object' || typeof test !== 'object' || typeof result !== 'object') {
+    return res.status(400).json({ error: 'Diagnosen mangler nødvendige oplysninger.' });
+  }
+
+  try {
+    const diagnosis: SharedDiagnosis = {
+      id: randomUUID(),
+      createdAt: new Date().toISOString(),
+      profile,
+      test,
+      result,
+      facebookQuestion: typeof facebookQuestion === 'string' ? facebookQuestion.slice(0, 1000) : undefined,
+    };
+    const records = await readSharedDiagnoses();
+    records.unshift(diagnosis);
+    await writeSharedDiagnoses(records);
+    res.status(201).json({ id: diagnosis.id, createdAt: diagnosis.createdAt });
+  } catch (error) {
+    console.error('Unable to save shared diagnosis:', error);
+    res.status(500).json({ error: 'Kunne ikke gemme diagnosen.' });
+  }
+});
+
+app.get('/api/shared-diagnoses/:id', async (req, res) => {
+  try {
+    const diagnosis = (await readSharedDiagnoses()).find(record => record.id === req.params.id);
+    if (!diagnosis) return res.status(404).json({ error: 'Diagnosen blev ikke fundet.' });
+    res.json(diagnosis);
+  } catch (error) {
+    console.error('Unable to load shared diagnosis:', error);
+    res.status(500).json({ error: 'Kunne ikke hente diagnosen.' });
+  }
 });
 
 function extractReplyText(payload: any): string {
