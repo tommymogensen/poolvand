@@ -30,7 +30,6 @@ import {
   Camera,
   Upload,
   Layers,
-  Thermometer,
   ShieldAlert,
   ArrowUpRight,
   Filter,
@@ -740,18 +739,6 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
               <ChevronLeft className="w-4 h-4" />
               <span>Tilbage</span>
             </button>
-
-            <div className="flex items-center space-x-2 text-xs text-slate-600">
-              <Thermometer className="w-4 h-4 text-sky-600" />
-              <span className="font-semibold">Vandtemp:</span>
-              <input
-                type="number"
-                value={waterTempC}
-                onChange={e => setWaterTempC(Number(e.target.value))}
-                className="w-16 px-2 py-1 bg-slate-50 border border-slate-300 rounded text-center text-xs font-bold text-slate-800"
-              />
-              <span className="font-semibold">°C</span>
-            </div>
 
             <button
               onClick={() => setStep(3)}
