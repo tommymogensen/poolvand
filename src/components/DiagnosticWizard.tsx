@@ -369,39 +369,21 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
-      {/* Wizard Header / Step Progress Indicator */}
-      <div className="mb-8 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center font-bold">
-              <Zap className="w-5 h-5 text-sky-600" />
-            </div>
-            <div>
-              <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2">
-                Poolvand Diagnose & Beregner
-              </h2>
-              <p className="text-xs text-slate-500">
-                Udfyld basisdata og målinger for at få en diagnose samt en klar oversigt til f.eks. Facebook.
-              </p>
-            </div>
-          </div>
-          {step < 5 && (
+      {step < 5 && (
+        <div className="mb-8 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex justify-end mb-3">
             <span className="text-xs font-bold px-3 py-1 rounded-md bg-sky-50 text-sky-700 border border-sky-200">
               Trin {step} af 4
             </span>
-          )}
-        </div>
-
-        {/* Progress Bar */}
-        {step < 5 && (
+          </div>
           <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden flex border border-slate-200">
             <div
               className="bg-sky-600 h-full transition-all duration-300"
               style={{ width: `${(step / 4) * 100}%` }}
             />
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* STEP 1: POOL BASIS INFO & UDSTYR */}
       {step === 1 && (
@@ -1128,45 +1110,6 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
       {/* STEP 5: DIAGNOSTIC & FACEBOOK EXPORT CARD */}
       {step === 5 && diagnosticResult && (
         <div className="space-y-6">
-          {/* Status Header Banner */}
-          <div
-            className={`p-6 sm:p-8 rounded-xl border shadow-sm ${
-              diagnosticResult.status === 'perfect'
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
-                : diagnosticResult.status === 'critical'
-                ? 'bg-rose-50 border-rose-300 text-rose-950'
-                : 'bg-amber-50 border-amber-300 text-amber-950'
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-center space-x-3">
-                {diagnosticResult.status === 'perfect' ? (
-                  <CheckCircle2 className="w-8 h-8 text-emerald-600 shrink-0" />
-                ) : diagnosticResult.status === 'critical' ? (
-                  <ShieldAlert className="w-8 h-8 text-rose-600 shrink-0" />
-                ) : (
-                  <AlertTriangle className="w-8 h-8 text-amber-600 shrink-0" />
-                )}
-                <div>
-                  <h3 className="text-xl font-bold">Diagnose Resultat</h3>
-                  <p className="text-sm font-medium mt-1 opacity-90">
-                    {diagnosticResult.summary}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setStep(1)}
-                  className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold border border-slate-300 shadow-sm transition flex items-center space-x-1"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Start Forfra</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
           {/* Complete input summary */}
           <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm space-y-5">
             <div>
@@ -1222,93 +1165,6 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
                 <div><span className="text-slate-500 block">Cyanursyre</span><span className="font-bold text-slate-800">{hasMeasuredCya ? `${cyaValue} ppm` : 'Ikke målt'}</span></div>
               </div>
             </div>
-          </div>
-
-          {/* Facebook Community Sharing Card */}
-          <div className="bg-sky-900 text-white rounded-xl p-6 shadow-md border border-sky-800 space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-11 h-11 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
-                  <Share2 className="w-6 h-6 text-sky-200" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-base flex items-center gap-2">
-                    Del & Få Hjælp på Facebook
-                    <span className="text-[10px] bg-sky-500/30 border border-sky-400/40 text-sky-100 px-2 py-0.5 rounded font-mono">
-                      1-Klik Kopi
-                    </span>
-                  </h4>
-                  <p className="text-xs text-sky-200 mt-0.5">
-                    Vil du spørge om råd i en poolgruppe (f.eks. 'Pool i Danmark')? Kopiér denne velstrukturerede oversigt direkte!
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2 w-full sm:w-auto shrink-0">
-                <button
-                  onClick={handleCopyFacebook}
-                  className={`flex-1 sm:flex-none px-5 py-3 rounded-xl font-bold text-xs transition flex items-center justify-center space-x-2 shadow-md ${
-                    copiedFacebook
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-white text-sky-900 hover:bg-sky-100'
-                  }`}
-                >
-                  {copiedFacebook ? (
-                    <>
-                      <Check className="w-4 h-4 text-white" />
-                      <span>Kopieret til udklipsholder!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4 text-sky-900" />
-                      <span>Kopiér Facebook-Opslag</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  onClick={() => setShowFacebookPreview(!showFacebookPreview)}
-                  className="px-3.5 py-3 rounded-xl bg-sky-800 hover:bg-sky-700 text-sky-200 text-xs font-bold border border-sky-700 transition"
-                  title="Vis/skjul tekst"
-                >
-                  {showFacebookPreview ? 'Skjul Tekst' : 'Vis Tekst'}
-                </button>
-              </div>
-            </div>
-
-            {copiedFacebook && (
-              <div className="p-3 bg-emerald-500/20 border border-emerald-400/30 rounded-lg text-emerald-200 text-xs font-semibold flex items-center space-x-2 animate-fade-in">
-                <Check className="w-4 h-4 text-emerald-300" />
-                <span>Teksten er nu kopieret! Åbn Facebook og tryk "Sæt ind" (Ctrl+V / Indsæt) i dit opret opslag-felt.</span>
-              </div>
-            )}
-
-            {showFacebookPreview && (
-              <div className="mt-4 pt-4 border-t border-sky-800/80 space-y-3">
-                <label className="block text-xs font-bold text-sky-200">
-                  Tilpas evt. dit spørgsmål til Facebook-gruppen:
-                </label>
-                <input
-                  type="text"
-                  value={customFacebookQuestion}
-                  onChange={e => setCustomFacebookQuestion(e.target.value)}
-                  className="w-full px-3 py-2 bg-sky-950/80 border border-sky-700 rounded-lg text-xs text-white placeholder-sky-400 font-medium"
-                />
-
-                <div className="relative">
-                  <pre className="p-4 bg-sky-950/90 rounded-lg border border-sky-700/60 text-[11px] font-mono text-sky-100 leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto">
-                    {generateFacebookText()}
-                  </pre>
-                  <button
-                    onClick={handleCopyFacebook}
-                    className="absolute top-3 right-3 p-1.5 bg-sky-800 hover:bg-sky-700 text-white rounded text-[10px] font-bold border border-sky-600 flex items-center gap-1"
-                  >
-                    <Copy className="w-3 h-3" />
-                    <span>Kopiér</span>
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Permanent share link */}

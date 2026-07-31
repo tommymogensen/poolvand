@@ -13,17 +13,9 @@ export const Header: React.FC = () => {
               <Waves className="w-6 h-6 text-white" />
             </div>
             <div>
-              <div className="flex items-center space-x-2">
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                  PoolMaster Pro
-                </h1>
-                <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded bg-sky-500/30 text-sky-100 border border-sky-400/30">
-                  Hjælpeværktøj
-                </span>
-              </div>
-              <p className="text-xs text-sky-100 uppercase tracking-wider font-medium hidden sm:block">
+              <h1 className="text-base sm:text-xl font-bold tracking-tight text-white">
                 Præcis Pool Kemi & Facebook Opslagshjælper
-              </p>
+              </h1>
             </div>
           </div>
 
@@ -38,4 +30,3 @@ export const Header: React.FC = () => {
     </header>
   );
 };
-
