@@ -28,7 +28,6 @@ import {
   RotateCcw,
   Sparkles,
   Camera,
-  Upload,
   Layers,
   ShieldAlert,
   ArrowUpRight,
@@ -47,18 +46,11 @@ interface DiagnosticWizardProps {
 const ImageActions: React.FC<{
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }> = ({ onChange }) => (
-  <div className="flex flex-wrap gap-2 shrink-0">
-    <label className="cursor-pointer px-3 py-2 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-2">
-      <Upload className="w-4 h-4" />
-      Vælg billede
-      <input type="file" accept="image/*" className="hidden" onChange={onChange} />
-    </label>
-    <label className="cursor-pointer px-3 py-2 rounded-lg bg-sky-700 hover:bg-sky-800 text-xs font-bold text-white flex items-center gap-2">
-      <Camera className="w-4 h-4" />
-      Tag billede
-      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={onChange} />
-    </label>
-  </div>
+  <label className="cursor-pointer px-3 py-2 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-2 shrink-0">
+    <Camera className="w-4 h-4" />
+    Upload
+    <input type="file" accept="image/*" className="hidden" onChange={onChange} />
+  </label>
 );
 
 export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
