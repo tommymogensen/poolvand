@@ -44,6 +44,23 @@ interface DiagnosticWizardProps {
   onUpdateProfile: (updated: PoolProfile) => void;
 }
 
+const ImageActions: React.FC<{
+  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+}> = ({ onChange }) => (
+  <div className="flex flex-wrap gap-2 shrink-0">
+    <label className="cursor-pointer px-3 py-2 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-2">
+      <Upload className="w-4 h-4" />
+      Vælg billede
+      <input type="file" accept="image/*" className="hidden" onChange={onChange} />
+    </label>
+    <label className="cursor-pointer px-3 py-2 rounded-lg bg-sky-700 hover:bg-sky-800 text-xs font-bold text-white flex items-center gap-2">
+      <Camera className="w-4 h-4" />
+      Tag billede
+      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={onChange} />
+    </label>
+  </div>
+);
+
 export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
   profile,
   onUpdateProfile
@@ -187,30 +204,6 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
     setSymptoms(prev =>
       prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
     );
-  };
-
-  // Handle pump photo upload
-  const handlePumpImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPumpImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Handle filter photo upload
-  const handleFilterImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFilterImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
   };
 
   const handleImageUpload = (
@@ -459,11 +452,7 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
                   <h3 className="text-xs font-bold text-slate-800">Billede af pool eller vand</h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">Valgfrit: vis poolens udseende i den delte diagnose.</p>
                 </div>
-                <label className="cursor-pointer px-3 py-2 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-2">
-                  <Camera className="w-4 h-4" />
-                  Upload
-                  <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e, setPoolWaterImage)} />
-                </label>
+                <ImageActions onChange={e => handleImageUpload(e, setPoolWaterImage)} />
               </div>
               {poolWaterImage && <img src={poolWaterImage} alt="Uploadet billede af pool eller vand" className="w-full max-h-56 object-cover rounded-lg border border-slate-200" />}
             </div>
@@ -528,16 +517,7 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
                       </div>
                     </div>
 
-                    <label className="px-3 py-1.5 rounded-lg bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs cursor-pointer transition flex items-center space-x-1.5 shadow-sm">
-                      <Camera className="w-3.5 h-3.5" />
-                      <span>{pumpImage ? 'Skift Billede' : 'Tag / Vælg Billede'}</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handlePumpImageUpload}
-                        className="hidden"
-                      />
-                    </label>
+                    <ImageActions onChange={e => handleImageUpload(e, setPumpImage)} />
                   </div>
 
                   {pumpImage && (
@@ -618,16 +598,7 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
                       </div>
                     </div>
 
-                    <label className="px-3 py-1.5 rounded-lg bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs cursor-pointer transition flex items-center space-x-1.5 shadow-sm">
-                      <Camera className="w-3.5 h-3.5" />
-                      <span>{filterImage ? 'Skift Billede' : 'Tag / Vælg Billede'}</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFilterImageUpload}
-                        className="hidden"
-                      />
-                    </label>
+                    <ImageActions onChange={e => handleImageUpload(e, setFilterImage)} />
                   </div>
 
                   {filterImage && (
@@ -885,11 +856,7 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
                   <h3 className="text-xs font-bold text-slate-800">Billede af desinfektion</h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">Valgfrit: fx klorprodukt, saltanlæg eller doseringsudstyr.</p>
                 </div>
-                <label className="cursor-pointer px-3 py-2 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-2">
-                  <Camera className="w-4 h-4" />
-                  Upload
-                  <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e, setDisinfectionImage)} />
-                </label>
+                <ImageActions onChange={e => handleImageUpload(e, setDisinfectionImage)} />
               </div>
               {disinfectionImage && <img src={disinfectionImage} alt="Uploadet billede af desinfektion" className="w-full max-h-56 object-cover rounded-lg border border-slate-200" />}
             </div>
@@ -1112,11 +1079,7 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
                   <h3 className="text-xs font-bold text-slate-800">Billede af vandmålinger</h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">Valgfrit: upload fx teststrimmel, dråbetest eller fotometer.</p>
                 </div>
-                <label className="cursor-pointer px-3 py-2 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-2">
-                  <Camera className="w-4 h-4" />
-                  Upload
-                  <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e, setMeasurementImage)} />
-                </label>
+                <ImageActions onChange={e => handleImageUpload(e, setMeasurementImage)} />
               </div>
               {measurementImage && <img src={measurementImage} alt="Uploadet billede af vandmålinger" className="w-full max-h-56 object-cover rounded-lg border border-slate-200" />}
             </div>
