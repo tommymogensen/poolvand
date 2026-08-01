@@ -534,7 +534,6 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
                       <input
                         type="file"
                         accept="image/*"
-                        capture="environment"
                         onChange={handlePumpImageUpload}
                         className="hidden"
                       />
@@ -625,7 +624,6 @@ export const DiagnosticWizard: React.FC<DiagnosticWizardProps> = ({
                       <input
                         type="file"
                         accept="image/*"
-                        capture="environment"
                         onChange={handleFilterImageUpload}
                         className="hidden"
                       />

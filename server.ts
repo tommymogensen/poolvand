@@ -91,6 +91,44 @@ app.post('/api/shared-diagnoses', async (req, res) => {
   }
 });
 
+app.get('/api/admin/sessions', async (req, res) => {
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  const suppliedPassword = req.header('x-admin-password');
+
+  if (!adminPassword) {
+    return res.status(503).json({ error: 'Admin-siden er ikke konfigureret. Sæt ADMIN_PASSWORD som miljøvariabel.' });
+  }
+
+  if (suppliedPassword !== adminPassword) {
+    return res.status(401).json({ error: 'Forkert adgangskode.' });
+  }
+
+  try {
+    const sessions = await readSharedDiagnoses();
+    res.json({
+      sessions: sessions.map(session => {
+        const profile = session.profile as Record<string, unknown>;
+        const test = session.test as Record<string, unknown>;
+        const result = session.result as Record<string, unknown>;
+
+        return {
+          id: session.id,
+          createdAt: session.createdAt,
+          volumeM3: profile.volumeM3 ?? null,
+          sanitizerType: profile.sanitizerType ?? null,
+          waterColor: test.waterColor ?? null,
+          ph: test.ph ?? null,
+          freeChlorinePpm: test.freeChlorinePpm ?? null,
+          status: result.status ?? null,
+        };
+      }),
+    });
+  } catch (error) {
+    console.error('Unable to list shared diagnoses:', error);
+    res.status(500).json({ error: 'Kunne ikke hente sessionerne.' });
+  }
+});
+
 app.get('/api/shared-diagnoses/:id', async (req, res) => {
   try {
     const diagnosis = (await readSharedDiagnoses()).find(record => record.id === req.params.id);

@@ -3,6 +3,7 @@ import { PoolProfile } from './types';
 import { DEFAULT_PROFILE } from './lib/constants';
 import { Header } from './components/Header';
 import { DiagnosticWizard } from './components/DiagnosticWizard';
+import { AdminSessions } from './components/AdminSessions';
 
 export default function App() {
   const [profile, setProfile] = useState<PoolProfile>(DEFAULT_PROFILE);
@@ -17,12 +18,16 @@ export default function App() {
       <Header />
 
       {/* Main View Container */}
-      <main className="flex-1 pb-16">
-        <DiagnosticWizard
-          profile={profile}
-          onUpdateProfile={handleUpdateProfile}
-        />
-      </main>
+      <div className="flex-1 pb-16">
+        {window.location.pathname === '/admin' ? (
+          <AdminSessions />
+        ) : (
+          <DiagnosticWizard
+            profile={profile}
+            onUpdateProfile={handleUpdateProfile}
+          />
+        )}
+      </div>
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white text-slate-500 text-[11px] py-4 px-6 text-center shadow-inner">

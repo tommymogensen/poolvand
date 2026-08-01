@@ -40,6 +40,10 @@ Deploy:
    AI_MODEL (valgfri)
 5. Deploy appen.
 
+### Admin-side
+
+Sæt miljøvariablen `ADMIN_PASSWORD` og gå derefter til `/admin`. Her kan du se alle gemte, delbare diagnoser fra de seneste 14 dage. Siden er beskyttet af adgangskoden og viser kun et kort overblik; hver session kan åbnes i en ny fane.
+
 Appen bruger PORT fra miljoevariabler automatisk (CapRover-kompatibelt).
 
 ### Delbare diagnoser
