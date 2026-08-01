@@ -48,7 +48,7 @@ const ImageActions: React.FC<{
 }> = ({ onChange }) => (
   <label className="cursor-pointer px-3 py-2 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-2 shrink-0">
     <Camera className="w-4 h-4" />
-    Upload
+    Tag / vælg billede
     <input type="file" accept="image/*" className="hidden" onChange={onChange} />
   </label>
 );
